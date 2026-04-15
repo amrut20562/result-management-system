@@ -77,25 +77,25 @@ result-management-system/
 ## 📸 Screenshots
 
 ### 🏠 Home Page
-![Home Page](static/screenshots/home.png)
+![Home Page](screenshots/home.jpg)
 
 ### 📋 Students List
-![Students List](static/screenshots/students.png)
+![Students List](screenshots/Students List.jpg)
 
 ### ➕ Add Student
-![Add Student](static/screenshots/add_student.png)
+![Add Student](screenshots/Add Student.jpg)
 
 ### 📝 Enter Marks
-![Enter Marks](static/screenshots/enter_marks.png)
+![Enter Marks](screenshots/Enter Marks.jpg)
 
 ### 🔎 Search Student
-![Search](static/screenshots/search.png)
+![Search](screenshots/Search Student.jpg)
 
 ### 📊 Analysis Dashboard
-![Analysis](static/screenshots/analysis.png)
+![Analysis](screenshots/Data Analysis.jpg)
 
 ---
 
 ## 👩‍💻 Author
-Nashra Rani 
-BCA Student
+Amrut more
+B.E AIDS Student
