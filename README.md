@@ -31,7 +31,7 @@ It helps manage student data, calculate result percentages and grades, and expor
 
 ### 1️⃣ Clone Repository
 ```bash
-git clone https://github.com/nishamirza109-hub/result-management-system.git
+git clone https://github.com/amrut20562/result-management-system.git
 cd result-management-system
 ```
 
