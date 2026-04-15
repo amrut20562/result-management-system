@@ -19,7 +19,7 @@ It helps manage student data, calculate result percentages and grades, and expor
 ## 🛠️ Technologies Used
 - Python  
 - Flask  
-- SQLite  
+- MySQL 
 - Pandas  
 - Matplotlib  
 - ReportLab  

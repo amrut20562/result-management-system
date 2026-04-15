@@ -1,5 +1,5 @@
 from flask import Flask, render_template, request, send_file
-import sqlite3
+from database import get_db_connection
 import matplotlib.pyplot as plt
 import io
 import base64
@@ -11,9 +11,12 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Table, TableStyle, 
 from reportlab.lib import colors
 from reportlab.lib.units import inch
 import datetime
-
+import matplotlib
+matplotlib.use('Agg')  # Non-GUI backend
+import matplotlib.pyplot as plt
 # Configure matplotlib
-rcParams['font.family'] = 'Arial'
+plt.rcParams['font.family'] = 'DejaVu Sans'
+#rcParams['font.family'] = 'Arial'
 rcParams['font.size'] = 10
 
 app = Flask(__name__)
@@ -34,35 +37,89 @@ def get_menu():
 def get_instructions():
     """Returns instructions for each page"""
     return '''
-    <div class="instructions">
-        <h4>📋 How to Use This System:</h4>
-        <p>1. <strong>Add Students</strong> first using the "Add Student" page</p>
-        <p>2. <strong>Enter Marks</strong> for students in all 6 subjects</p>
-        <p>3. <strong>View Results</strong> to see grades and percentages</p>
-        <p>4. <strong>Download PDF</strong> of any student's result card</p>
-        <p>5. <strong>Analyze Data</strong> using the Data Analysis Dashboard</p>
-        <p>6. <strong>Search Students</strong> by name or roll number</p>
-        <p><strong>Note:</strong> All data is stored in SQLite database</p>
+    <div style="margin: 30px 0;">
+        <h3 style="color: #333; margin-bottom: 20px; font-size: 22px;">📋 How to Use This System:</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); transition: transform 0.3s;">
+                <h4 style="margin-bottom: 15px; font-size: 18px;">1️⃣ Add Students</h4>
+                <p style="font-size: 14px; line-height: 1.6;">Start by registering all students using the "➕ Add Student" page. Enter their roll number, name, email, and phone.</p>
+            </div>
+            <div style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); color: white; padding: 25px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); transition: transform 0.3s;">
+                <h4 style="margin-bottom: 15px; font-size: 18px;">2️⃣ Enter Marks</h4>
+                <p style="font-size: 14px; line-height: 1.6;">Use the "📝 Enter Marks" page to add marks for each student in all 6 AIDS subjects (0-100).</p>
+            </div>
+            <div style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); color: white; padding: 25px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); transition: transform 0.3s;">
+                <h4 style="margin-bottom: 15px; font-size: 18px;">3️⃣ View Results</h4>
+                <p style="font-size: 14px; line-height: 1.6;">Check individual student results with grades, percentages, and detailed performance analytics.</p>
+            </div>
+            <div style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color: white; padding: 25px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); transition: transform 0.3s;">
+                <h4 style="margin-bottom: 15px; font-size: 18px;">4️⃣ Download PDF</h4>
+                <p style="font-size: 14px; line-height: 1.6;">Export professional PDF result cards for any student with all marks and grades included.</p>
+            </div>
+            <div style="background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%); color: #333; padding: 25px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); transition: transform 0.3s;">
+                <h4 style="margin-bottom: 15px; font-size: 18px;">5️⃣ Analyze Data</h4>
+                <p style="font-size: 14px; line-height: 1.6;">Visit the "📊 Analysis" dashboard to see charts, statistics, and performance insights.</p>
+            </div>
+            <div style="background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); color: #333; padding: 25px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); transition: transform 0.3s;">
+                <h4 style="margin-bottom: 15px; font-size: 18px;">6️⃣ Search Students</h4>
+                <p style="font-size: 14px; line-height: 1.6;">Use the "🔍 Search" feature to quickly find any student by name or roll number.</p>
+            </div>
+        </div>
+        <div style="background: #e8f4f8; padding: 20px; border-radius: 12px; margin-top: 25px; border-left: 5px solid #2196F3; border-radius: 8px;">
+            <p style="color: #333; margin: 0;"><strong>💡 Tip:</strong> All data is stored securely in MySQL database. You can enter and update marks anytime!</p>
+        </div>
     </div>
     '''
 
 def get_subjects_info():
-    """Returns BCA subjects information"""
+    """Returns B.E AIDS subjects information"""
     return '''
-    <div class="subjects-info">
-        <h4>📚 BCA 5th Semester Subjects:</h4>
-        <p><strong>0527001</strong> - Java Programming</p>
-        <p><strong>0527002</strong> - Computer Networks</p>
-        <p><strong>0527003</strong> - Computer Graphics & Multimedia Applications</p>
-        <p><strong>0527004</strong> - IT Trends & Technologies</p>
-        <p><strong>0527065</strong> - Minor Project</p>
-        <p><strong>0527080</strong> - Java & Computer Graphics Lab</p>
+    <div style="margin: 30px 0;">
+        <h3 style="color: #333; margin-bottom: 20px; font-size: 22px;">📚 B.E (Artificial Intelligence & Data Science) 4th Semester - Subjects</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px;">
+            <div style="background: white; border: 2px solid #667eea; padding: 25px; border-radius: 12px; box-shadow: 0 3px 10px rgba(0,0,0,0.08); transition: all 0.3s;">
+                <h4 style="color: #667eea; margin-bottom: 10px; font-size: 16px;">🤖 AIDS2401</h4>
+                <p style="color: #555; font-size: 14px; line-height: 1.6;">Machine Learning & Algorithms</p>
+                <p style="color: #999; font-size: 12px; margin-top: 10px;">Core ML concepts and practical algorithms</p>
+            </div>
+            <div style="background: white; border: 2px solid #764ba2; padding: 25px; border-radius: 12px; box-shadow: 0 3px 10px rgba(0,0,0,0.08); transition: all 0.3s;">
+                <h4 style="color: #764ba2; margin-bottom: 10px; font-size: 16px;">⚙️ AIDS2402</h4>
+                <p style="color: #555; font-size: 14px; line-height: 1.6;">Data Engineering & ETL</p>
+                <p style="color: #999; font-size: 12px; margin-top: 10px;">Pipeline design and data processing</p>
+            </div>
+            <div style="background: white; border: 2px solid #f093fb; padding: 25px; border-radius: 12px; box-shadow: 0 3px 10px rgba(0,0,0,0.08); transition: all 0.3s;">
+                <h4 style="color: #f093fb; margin-bottom: 10px; font-size: 16px;">📊 AIDS2403</h4>
+                <p style="color: #555; font-size: 14px; line-height: 1.6;">Advanced Statistics for AI</p>
+                <p style="color: #999; font-size: 12px; margin-top: 10px;">Statistical methods and probability</p>
+            </div>
+            <div style="background: white; border: 2px solid #f5576c; padding: 25px; border-radius: 12px; box-shadow: 0 3px 10px rgba(0,0,0,0.08); transition: all 0.3s;">
+                <h4 style="color: #f5576c; margin-bottom: 10px; font-size: 16px;">🧠 AIDS2404</h4>
+                <p style="color: #555; font-size: 14px; line-height: 1.6;">Neural Networks & Deep Learning</p>
+                <p style="color: #999; font-size: 12px; margin-top: 10px;">Deep learning architectures and frameworks</p>
+            </div>
+            <div style="background: white; border: 2px solid #4facfe; padding: 25px; border-radius: 12px; box-shadow: 0 3px 10px rgba(0,0,0,0.08); transition: all 0.3s;">
+                <h4 style="color: #4facfe; margin-bottom: 10px; font-size: 16px;">🔍 AIDS2405</h4>
+                <p style="color: #555; font-size: 14px; line-height: 1.6;">Data Mining & Knowledge Discovery</p>
+                <p style="color: #999; font-size: 12px; margin-top: 10px;">Pattern discovery and knowledge extraction</p>
+            </div>
+            <div style="background: white; border: 2px solid #00f2fe; padding: 25px; border-radius: 12px; box-shadow: 0 3px 10px rgba(0,0,0,0.08); transition: all 0.3s;">
+                <h4 style="color: #00f2fe; margin-bottom: 10px; font-size: 16px;">💬 AIDS2406</h4>
+                <p style="color: #555; font-size: 14px; line-height: 1.6;">Natural Language Processing</p>
+                <p style="color: #999; font-size: 12px; margin-top: 10px;">Text analysis and language understanding</p>
+            </div>
+        </div>
+        <div style="background: linear-gradient(135deg, #fff5e1 0%, #ffe0b2 100%); padding: 25px; border-radius: 12px; margin-top: 25px; border-left: 5px solid #ff9800;">
+            <h4 style="color: #333; margin-bottom: 10px;">ℹ️ Program Information</h4>
+            <p style="color: #555; margin: 5px 0; font-size: 14px;"><strong>Semester:</strong> 4th Semester (B.E AIDS)</p>
+            <p style="color: #555; margin: 5px 0; font-size: 14px;"><strong>Total Subjects:</strong> 6 | <strong>Max Marks per Subject:</strong> 100</p>
+            <p style="color: #555; margin: 5px 0; font-size: 14px;"><strong>Passing Grade:</strong> 40% | <strong>Outstanding Grade:</strong> 90%</p>
+        </div>
     </div>
     '''
 
 def create_charts():
     """Generate charts for analysis page"""
-    conn = sqlite3.connect('bca_results.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     # Chart 1: Subject-wise Average Marks
@@ -151,11 +208,11 @@ def create_charts():
 
 def generate_pdf(student_id):
     """Generate PDF result card for a student"""
-    conn = sqlite3.connect('bca_results.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     # Get student data
-    cursor.execute('SELECT roll_no, name, semester FROM students WHERE id=?', (student_id,))
+    cursor.execute('SELECT roll_no, name, semester FROM students WHERE id=%s', (student_id,))
     student = cursor.fetchone()
     
     if not student:
@@ -167,7 +224,7 @@ def generate_pdf(student_id):
         SELECT s.subject_code, s.subject_name, m.marks
         FROM marks m
         JOIN subjects s ON m.subject_id = s.id
-        WHERE m.student_id = ?
+        WHERE m.student_id = %s
         ORDER BY s.subject_code
     ''', (student_id,))
     
@@ -245,8 +302,7 @@ def generate_pdf(student_id):
     story = []
     
     # Title
-    story.append(Paragraph("🎓 ALPINE COLLEGE OF EDUCATION", title_style))
-    story.append(Paragraph("BCA 5th Semester - Result Card", styles['Heading2']))
+    story.append(Paragraph("B.E (Artificial Intelligence & Data Science) 4th Semester - Result Card", styles['Heading2']))
     story.append(Spacer(1, 20))
     
     # Student Information
@@ -310,7 +366,7 @@ def generate_pdf(student_id):
     # Footer
     story.append(Paragraph("<i>This is a computer-generated result card. No signature required.</i>", 
                           ParagraphStyle('Footer', parent=styles['Italic'], fontSize=9, textColor=colors.grey)))
-    story.append(Paragraph("<i>© Alpine College of Education - BCA Department</i>", 
+    story.append(Paragraph("<i>©  B.E (Artificial Intelligence & Data Science) Department</i>", 
                           ParagraphStyle('Footer', parent=styles['Italic'], fontSize=9, textColor=colors.grey)))
     
     # Build PDF
@@ -321,94 +377,179 @@ def generate_pdf(student_id):
 
 @app.route('/')
 def home():
-    return '''
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    # Fetch overall statistics
+    cursor.execute('''
+        SELECT 
+            COUNT(DISTINCT s.id) as total_students,
+            COUNT(m.id) as total_marks_entries,
+            AVG(m.marks) as avg_marks,
+            MAX(m.marks) as highest_mark,
+            MIN(m.marks) as lowest_mark,
+            SUM(CASE WHEN m.marks >= 40 THEN 1 ELSE 0 END) * 100.0 / NULLIF(COUNT(m.id), 0) as pass_percentage
+        FROM students s
+        LEFT JOIN marks m ON s.id = m.student_id
+    ''')
+    overall_stats = cursor.fetchone()
+    conn.close()
+    
+    total_students = overall_stats[0] or 0
+    total_marks_entries = overall_stats[1] or 0
+    avg_marks = overall_stats[2] or 0
+    pass_percentage = overall_stats[5] or 0
+    
+    return f'''
     <!DOCTYPE html>
     <html>
     <head>
-        <title>BCA Result System</title>
+        <title>B.E Result System</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-           body {
-    font-family: Arial;
-    margin: 40px;
-    background-image: url("/static/background.png");
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-}
-
-            .header {background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px;}
-            .menu {margin: 20px 0;}
-            .menu a {display: inline-block; margin: 10px; padding: 12px 20px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;}
-            .container {background: white; padding: 25px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);}
-            .instructions, .subjects-info {background: #f0f8ff; padding: 15px; border-radius: 8px; margin: 15px 0;}
-            .card {background: white; padding: 20px; border-radius: 10px; box-shadow: 0 3px 10px rgba(0,0,0,0.1); margin: 15px 0;}
-            .feature-grid {display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px; margin: 25px 0;}
-            .feature-card {background: white; padding: 20px; border-radius: 10px; box-shadow: 0 3px 10px rgba(0,0,0,0.1); text-align: center;}
-            .pdf-badge {background: #e74c3c; color: white; padding: 5px 10px; border-radius: 15px; font-size: 12px; margin-left: 10px;}
+            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+            body {{ 
+                font-family: Arial, sans-serif;
+                background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+                min-height: 100vh;
+                padding: 20px;
+            }}
+            .header {{ 
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+                color: white; 
+                padding: 20px; 
+                border-radius: 10px; 
+                text-align: center;
+            }}
+            .header h1 {{ font-size: 28px; margin-bottom: 10px; }}
+            .header p {{ font-size: 16px; }}
+            .menu {{ 
+                margin: 20px 0; 
+                display: flex; 
+                flex-wrap: wrap; 
+                gap: 10px;
+                justify-content: center;
+            }}
+            .menu a {{ 
+                padding: 12px 20px; 
+                background: #4CAF50; 
+                color: white; 
+                text-decoration: none; 
+                border-radius: 5px; 
+                font-weight: bold;
+                transition: all 0.3s;
+            }}
+            .menu a:hover {{ background: #45a049; transform: translateY(-2px); }}
+            .container {{
+                background: white; 
+                padding: 25px; 
+                border-radius: 10px; 
+                box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+                max-width: 1200px;
+                margin: 0 auto;
+            }}
+            .stat-card {{
+                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                color: white;
+                padding: 20px;
+                border-radius: 10px;
+                box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+                text-align: center;
+            }}
+            .stats-grid {{
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+                gap: 15px;
+                margin: 25px 0;
+            }}
+            .pdf-feature {{
+                background: #ffeaa7;
+                padding: 20px;
+                border-radius: 10px;
+                margin: 20px 0;
+                border-left: 5px solid #e74c3c;
+            }}
+            h2 {{ 
+                color: #333; 
+                margin: 30px 0 20px 0;
+                padding-bottom: 10px;
+                border-bottom: 2px solid #667eea;
+            }}
+            @media (max-width: 768px) {{
+                body {{ padding: 10px; }}
+                .header {{ padding: 15px; }}
+                .header h1 {{ font-size: 24px; }}
+                .container {{ padding: 15px; }}
+                .stats-grid {{ grid-template-columns: 1fr; }}
+            }}
         </style>
     </head>
     <body>
         <div class="header">
-            <h1>🎓 BCA Result Management System <span class="pdf-badge">PDF Export</span></h1>
-            <p>Alpine College of Education - 5th Semester</p>
+            <h1>🎓 B.E Result Management System</h1>
+            <p>Artificial Intelligence & Data Science 4th Semester</p>
         </div>
         
-        ''' + get_menu() + '''
+        {get_menu()}
         
         <div class="container">
-            <h2>Welcome to Result Management System</h2>
+            <div class="pdf-feature">
+                <h3>📄 Features & Updates</h3>
+                <p>Professional result management with PDF export, data analysis, and comprehensive statistics!</p>
+            </div>
             
-            ''' + get_subjects_info() + '''
-            
-            <h3>📱 System Features:</h3>
-            <div class="feature-grid">
-                <div class="feature-card">
-                    <h4>👨‍🎓 Student Management</h4>
-                    <p>Manage 46 students with real names</p>
+            <h2>📈 Overall Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h3>👨‍🎓 Total Students</h3>
+                    <p style="font-size: 36px; margin: 10px 0;">{total_students}</p>
                 </div>
-                <div class="feature-card">
+                <div class="stat-card">
+                    <h3>📝 Total Marks Entries</h3>
+                    <p style="font-size: 36px; margin: 10px 0;">{total_marks_entries}</p>
+                </div>
+                <div class="stat-card">
+                    <h3>📊 Average Marks</h3>
+                    <p style="font-size: 36px; margin: 10px 0;">{avg_marks:.1f}</p>
+                </div>
+                <div class="stat-card">
+                    <h3>🏆 Pass Percentage</h3>
+                    <p style="font-size: 36px; margin: 10px 0;">{pass_percentage:.1f}%</p>
+                </div>
+            </div>
+            
+            {get_subjects_info()}
+            
+            {get_instructions()}
+            
+            <h2>🚀 Quick Links</h2>
+            <div class="stats-grid">
+                <div class="stat-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                    <h4>👨‍🎓 View Students</h4>
+                    <p style="margin-top: 10px;"><a href="/students" style="color: white; text-decoration: none; font-weight: bold;">→ Go to Students</a></p>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                    <h4>📝 Enter Marks</h4>
+                    <p style="margin-top: 10px;"><a href="/enter_marks" style="color: white; text-decoration: none; font-weight: bold;">→ Go to Marks</a></p>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);">
+                    <h4>🔍 Search Students</h4>
+                    <p style="margin-top: 10px;"><a href="/search" style="color: white; text-decoration: none; font-weight: bold;">→ Go to Search</a></p>
+                </div>
+                <div class="stat-card" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);">
                     <h4>📊 Data Analysis</h4>
-                    <p>Charts & statistics for performance</p>
-                </div>
-                <div class="feature-card">
-                    <h4>📄 PDF Export</h4>
-                    <p>Download result cards as PDF</p>
-                </div>
-                <div class="feature-card">
-                    <h4>🔍 Smart Search</h4>
-                    <p>Find students instantly</p>
+                    <p style="margin-top: 10px;"><a href="/analysis" style="color: white; text-decoration: none; font-weight: bold;">→ Go to Analysis</a></p>
                 </div>
             </div>
             
-            <h3>🚀 Quick Access:</h3>
-            <div class="card">
-                <h4>1. View All Students</h4>
-                <p>Click "👨‍🎓 Students" to see all 46 students with result cards</p>
-                <p><strong>NEW:</strong> Each student has a "📄 Download PDF" button!</p>
-            </div>
-            
-            <div class="card">
-                <h4>2. Search Students</h4>
-                <p>Click "🔍 Search" to find students by name or roll number</p>
-            </div>
-            
-            <div class="card">
-                <h4>3. Data Analysis</h4>
-                <p>Click "📊 Analysis" to see charts and statistics</p>
-            </div>
-            
-            <div class="card">
-                <h4>4. Enter Marks</h4>
-                <p>Click "📝 Enter Marks" to add/update student marks</p>
-            </div>
-            
-            ''' + get_instructions() + '''
+            <br><br>
         </div>
         
-        <div style="margin-top: 30px; color: #666; font-size: 14px;">
+        <div style="margin-top: 30px; text-align: center; color: #666; font-size: 14px;">
             <hr>
-            <p>BCA 5th Semester Project • Alpine College of Education • Data Analyst Project</p>
-            <p>📊 Now with Charts, Search & PDF Export Features!</p>
+            <p>B.E AIDS Result Management System • Artificial Intelligence & Data Science</p>
+            <p>📊 Comprehensive Results Platform</p>
         </div>
     </body>
     </html>
@@ -416,7 +557,7 @@ def home():
 
 @app.route('/students')
 def view_students():
-    conn = sqlite3.connect('bca_results.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM students')
     students = cursor.fetchall()
@@ -441,32 +582,74 @@ def view_students():
 <html>
 <head>
     <title>Students List</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body{{
-    font-family: Arial;
-    margin: 40px;
-    background-image: url("/static/background.png");
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-}}
-        .header {{background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px;}}
-        .menu {{margin: 20px 0;}}
-        .menu a {{display: inline-block; margin: 10px; padding: 12px 20px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;}}
-        .container {{background: white; padding: 25px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);}}
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+        body {{
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }}
+        .header {{
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+            color: white; 
+            padding: 20px; 
+            border-radius: 10px;
+            margin-bottom: 20px;
+            text-align: center;
+        }}
+        .header h1 {{ font-size: 28px; margin-bottom: 10px; }}
+        .header p {{ font-size: 16px; }}
+        .menu {{
+            margin: 15px 0; 
+            display: flex; 
+            flex-wrap: wrap; 
+            gap: 10px;
+            justify-content: center;
+        }}
+        .menu a {{
+            padding: 10px 15px; 
+            background: #4CAF50; 
+            color: white; 
+            text-decoration: none; 
+            border-radius: 5px; 
+            font-weight: bold;
+            transition: all 0.3s;
+            font-size: 14px;
+        }}
+        .menu a:hover {{ background: #45a049; transform: translateY(-2px); }}
+        .container {{
+            background: white; 
+            padding: 25px; 
+            border-radius: 10px; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            max-width: 1000px;
+            margin: 0 auto;
+        }}
         table {{width: 100%; border-collapse: collapse; margin: 20px 0;}}
         th, td {{border: 1px solid #ddd; padding: 10px; text-align: left;}}
         th {{background: #4CAF50; color: white;}}
-        .instructions {{background: #f0f8ff; padding: 15px; border-radius: 8px; margin: 15px 0;}}
-        .stats {{background: #e8f5e9; padding: 15px; border-radius: 8px; margin: 15px 0;}}
-        .pdf-btn {{background: #e74c3c; color: white; padding: 8px 15px; border-radius: 5px; text-decoration: none; font-size: 14px;}}
-        .pdf-btn:hover {{background: #c0392b;}}
+        .instructions {{background: #f0f8ff; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #4CAF50;}}
+        .stats {{background: #e8f5e9; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #4CAF50;}}
+        .pdf-btn {{background: #e74c3c; color: white; padding: 8px 15px; border-radius: 5px; text-decoration: none; font-size: 14px; transition: all 0.3s;}}
+        .pdf-btn:hover {{background: #c0392b; transform: translateY(-2px);}}
+        h2, h3 {{ color: #333; margin: 20px 0 15px 0; }}
+        @media (max-width: 768px) {{
+            body {{ padding: 10px; }}
+            .header {{ padding: 15px; }}
+            .header h1 {{ font-size: 24px; }}
+            .container {{ padding: 15px; }}
+            table {{ font-size: 14px; }}
+            th, td {{ padding: 8px; }}
+        }}
     </style>
 </head>
 <body>
     <div class="header">
         <h1>👨‍🎓 Students List <span style="background: #e74c3c; color: white; padding: 5px 10px; border-radius: 15px; font-size: 14px;">PDF READY</span></h1>
-        <p>BCA 5th Semester - All Registered Students (Click 📄 to download PDF)</p>
+        <p>B.E (Artificial Intelligence & Data Science) 4th Semester - All Registered Students (Click 📄 to download PDF)</p>
     </div>
     
     {get_menu()}
@@ -518,9 +701,9 @@ def download_pdf(student_id):
     
     if pdf_buffer:
         # Get student name for filename
-        conn = sqlite3.connect('bca_results.db')
+        conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('SELECT name FROM students WHERE id=?', (student_id,))
+        cursor.execute('SELECT name FROM students WHERE id=%s', (student_id,))
         student_name = cursor.fetchone()[0]
         conn.close()
         
@@ -550,13 +733,13 @@ def search_students():
     if request.method == 'POST':
         search_query = request.form['search_query']
         
-        conn = sqlite3.connect('bca_results.db')
+        conn = get_db_connection()
         cursor = conn.cursor()
         
         # Search in name and roll number
         cursor.execute('''
             SELECT * FROM students 
-            WHERE name LIKE ? OR roll_no LIKE ?
+            WHERE name LIKE %s OR roll_no LIKE %s
             ORDER BY name
         ''', (f'%{search_query}%', f'%{search_query}%'))
         
@@ -591,31 +774,45 @@ def search_students():
     <html>
     <head>
         <title>Search Students</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-             body {{
-    font-family: Arial;
-    margin: 40px;
-    background-image: url("/static/background.png");
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-}}
-            .header {{background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px;}}
-            .menu {{margin: 20px 0;}}
-            .menu a {{display: inline-block; margin: 10px; padding: 12px 20px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;}}
-            .container {{background: white; padding: 25px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1);}}
-            .search-box {{background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0;}}
-            input[type="text"] {{width: 70%; padding: 12px; border: 2px solid #ddd; border-radius: 5px; font-size: 16px;}}
-            input[type="submit"] {{padding: 12px 30px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;}}
-            table {{width: 100%; border-collapse: collapse; margin: 20px 0;}}
-            th, td {{border: 1px solid #ddd; padding: 10px; text-align: left;}}
-            th {{background: #4CAF50; color: white;}}
+            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
+            body {{
+                font-family: Arial, sans-serif;
+                background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+                min-height: 100vh;
+                padding: 20px;
+            }}
+            .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; }}
+            .header h1 {{ font-size: 28px; margin-bottom: 10px; }}
+            .header p {{ font-size: 16px; }}
+            .menu {{ margin: 20px 0; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }}
+            .menu a {{ display: inline-block; padding: 12px 20px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; transition: all 0.3s; }}
+            .menu a:hover {{ background: #45a049; transform: translateY(-2px); }}
+            .container {{ background: white; padding: 25px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); max-width: 900px; margin: 0 auto; }}
+            .search-box {{ background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 20px 0; }}
+            input[type="text"] {{ width: 70%; padding: 12px; border: 2px solid #ddd; border-radius: 5px; font-size: 16px; }}
+            input[type="submit"] {{ padding: 12px 30px; background: #2196F3; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; transition: all 0.3s; }}
+            input[type="submit"]:hover {{ background: #0b7dda; }}
+            table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
+            th, td {{ border: 1px solid #ddd; padding: 10px; text-align: left; }}
+            th {{ background: #4CAF50; color: white; }}
+            h2, h3 {{ color: #333; margin: 20px 0 15px 0; }}
+            .alert {{ background: #fff3cd; padding: 15px; border-radius: 5px; margin: 20px 0; }}
+            @media (max-width: 768px) {{
+                body {{ padding: 10px; }}
+                .header {{ padding: 15px; }}
+                .header h1 {{ font-size: 24px; }}
+                .container {{ padding: 15px; }}
+                input[type="text"] {{ width: 100%; }}
+            }}
         </style>
     </head>
     <body>
         <div class="header">
             <h1>🔍 Search Students</h1>
-            <p>BCA 5th Semester - Find Students by Name or Roll Number</p>
+            <p>B.E (Artificial Intelligence & Data Science) 4th Semester - Find Students by Name or Roll Number</p>
         </div>
         
         {get_menu()}
@@ -627,13 +824,16 @@ def search_students():
                     <input type="text" name="search_query" value="{search_query}" placeholder="Enter student name or roll number..." required>
                     <input type="submit" value="Search">
                 </form>
-                <p style="color: #666; margin-top: 10px;">Search by: Name (e.g., "Aarav") or Roll No (e.g., "BCA2024001")</p>
+                <p style="color: #666; margin-top: 10px;">Search by: Name (e.g., "Aarav") or Roll No (e.g., "AIDS2024001")</p>
             </div>
             
             {search_results}
             
+            {get_instructions()}
+            {get_subjects_info()}
+            
             <br>
-            <a href="/students" style="padding: 10px 20px; background: #2196F3; color: white; text-decoration: none; border-radius: 5px;">← Back to All Students</a>
+            <a href="/students" style="padding: 10px 20px; background: #2196F3; color: white; text-decoration: none; border-radius: 5px; display: inline-block; transition: all 0.3s;" onmouseover="this.style.background='#0b7dda';" onmouseout="this.style.background='#2196F3';">← Back to All Students</a>
         </div>
     </body>
     </html>
@@ -642,16 +842,19 @@ def search_students():
 # [The rest of your routes remain EXACTLY THE SAME - add_student, enter_marks, view_result, analysis]
 # Just copy all your existing routes from your current app.py (excluding home, students, search, download_pdf)
 
+
 # Continue with your existing add_student route (copy from your current app.py)
 @app.route('/add_student', methods=['GET', 'POST'])
 def add_student():
     if request.method == 'POST':
         roll_no = request.form['roll_no']
         name = request.form['name']
+        email = request.form.get('email', '')
+        phone = request.form.get('phone', '')
         
-        conn = sqlite3.connect('bca_results.db')
+        conn = get_db_connection()
         cursor = conn.cursor()
-        cursor.execute('INSERT INTO students (roll_no, name, semester) VALUES (?, ?, 5)', (roll_no, name))
+        cursor.execute('INSERT INTO students (roll_no, name, semester, email, phone) VALUES (%s, %s, 4, %s, %s)', (roll_no, name, email, phone))
         conn.commit()
         conn.close()
         
@@ -660,37 +863,59 @@ def add_student():
         <html>
         <head>
             <title>Success</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
+                * {{ margin: 0; padding: 0; box-sizing: border-box; }}
                 body {{
-    font-family: Arial;
-    margin: 40px;
-    background-image: url("/static/background.png");
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-}}
-                .success-box {{background: white; padding: 40px; border-radius: 10px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.1); max-width: 500px; margin: auto;}}
+                    font-family: Arial, sans-serif;
+                    background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+                    min-height: 100vh;
+                    padding: 20px;
+                }}
+                .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px; }}
+                .header h1 {{ font-size: 28px; margin-bottom: 10px; }}
+                .container {{ background: white; padding: 30px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); max-width: 600px; margin: 0 auto; text-align: center; }}
+                .success-box h2 {{ color: #4CAF50; margin: 20px 0; }}
+                .success-box p {{ margin: 10px 0; color: #333; }}
+                .btn-group {{ margin: 30px 0; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }}
+                .btn {{ padding: 12px 20px; color: white; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; transition: all 0.3s; }}
+                .btn-primary {{ background: #4CAF50; }}
+                .btn-primary:hover {{ background: #45a049; transform: translateY(-2px); }}
+                .btn-secondary {{ background: #2196F3; }}
+                .btn-secondary:hover {{ background: #0b7dda; transform: translateY(-2px); }}
+                .btn-default {{ background: #666; }}
+                .btn-default:hover {{ background: #555; transform: translateY(-2px); }}
+                .info-box {{ background: #f0f8ff; padding: 15px; border-radius: 8px; margin-top: 20px; border-left: 4px solid #4CAF50; text-align: left; }}
             </style>
         </head>
         <body>
-            <div class="success-box">
-                <h2 style="color: #4CAF50;">✅ Student Added Successfully!</h2>
-                <p><strong>Name:</strong> {name}</p>
-                <p><strong>Roll No:</strong> {roll_no}</p>
-                <p><strong>Semester:</strong> BCA 5th</p>
-                
-                <div style="margin: 30px 0;">
-                    <a href="/add_student" style="padding: 10px 20px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px; margin: 5px;">Add Another Student</a>
-                    <a href="/enter_marks" style="padding: 10px 20px; background: #2196F3; color: white; text-decoration: none; border-radius: 5px; margin: 5px;">Enter Marks</a>
-                    <a href="/" style="padding: 10px 20px; background: #666; color: white; text-decoration: none; border-radius: 5px; margin: 5px;">Home</a>
-                </div>
-                
-                <div style="background: #f0f8ff; padding: 15px; border-radius: 8px; margin-top: 20px;">
-                    <h4>Next Steps:</h4>
-                    <p>1. Add more students if needed</p>
-                    <p>2. Enter marks for this student in all 6 subjects</p>
-                    <p>3. View the student's result</p>
-                    <p>4. Download PDF result card</p>
+            <div class="header">
+                <h1>✅ Success</h1>
+            </div>
+            
+            <div class="container">
+                <div class="success-box">
+                    <h2>Student Added Successfully!</h2>
+                    <p><strong>Name:</strong> {name}</p>
+                    <p><strong>Roll No:</strong> {roll_no}</p>
+                    <p><strong>Email:</strong> {email if email else 'Not provided'}</p>
+                    <p><strong>Phone:</strong> {phone if phone else 'Not provided'}</p>
+                    <p><strong>Semester:</strong> B.E AIDS 4th</p>
+                    
+                    <div class="btn-group">
+                        <a href="/add_student" class="btn btn-primary">Add Another Student</a>
+                        <a href="/enter_marks" class="btn btn-secondary">Enter Marks</a>
+                        <a href="/" class="btn btn-default">Home</a>
+                    </div>
+                    
+                    <div class="info-box">
+                        <h4>Next Steps:</h4>
+                        <p>1. Add more students if needed</p>
+                        <p>2. Enter marks for this student in all 6 subjects</p>
+                        <p>3. View the student's result</p>
+                        <p>4. Download PDF result card</p>
+                    </div>
                 </div>
             </div>
         </body>
@@ -702,48 +927,77 @@ def add_student():
     <html>
     <head>
         <title>Add Student</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
+            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
             body {{
-    font-family: Arial;
-    margin: 40px;
-    background-image: url("/static/background.png");
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-}}
-            .header {{background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px;}}
-            .menu {{margin: 20px 0;}}
-            .menu a {{display: inline-block; margin: 10px; padding: 12px 20px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;}}
-            .container {{background: white; padding: 30px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); max-width: 500px; margin: auto;}}
-            form {{margin-top: 20px;}}
-            label {{display: block; margin: 15px 0 5px; font-weight: bold;}}
-            input[type="text"] {{width: 100%; padding: 10px; margin: 5px 0 20px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box;}}
-            input[type="submit"] {{background: #4CAF50; color: white; padding: 12px 30px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;}}
-            input[type="submit"]:hover {{background: #45a049;}}
+                font-family: Arial, sans-serif;
+                background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+                min-height: 100vh;
+                padding: 20px;
+            }}
+            .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; }}
+            .header h1 {{ font-size: 28px; margin-bottom: 10px; }}
+            .header p {{ font-size: 16px; }}
+            .menu {{ margin: 20px 0; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }}
+            .menu a {{ display: inline-block; padding: 12px 20px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; transition: all 0.3s; }}
+            .menu a:hover {{ background: #45a049; transform: translateY(-2px); }}
+            .container {{ background: white; padding: 25px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); max-width: 600px; margin: 0 auto; }}
+            h2 {{ color: #333; margin: 20px 0 15px 0; }}
+            .form-group {{ margin: 15px 0; }}
+            label {{ display: block; margin-bottom: 5px; font-weight: bold; color: #333; }}
+            input[type="text"], input[type="email"], input[type="tel"] {{ width: 100%; padding: 12px; margin: 5px 0 10px 0; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; font-family: Arial; }}
+            input[type="text"]:focus, input[type="email"]:focus, input[type="tel"]:focus {{ outline: none; border-color: #667eea; box-shadow: 0 0 5px rgba(102, 126, 234, 0.3); }}
+            input[type="submit"] {{ width: 100%; background: #4CAF50; color: white; padding: 12px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 10px; }}
+            input[type="submit"]:hover {{ background: #45a049; }}
+            .instructions {{ background: #f0f8ff; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #4CAF50; }}
+            .subjects-info {{ background: #f0f8ff; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #4CAF50; }}
+            @media (max-width: 768px) {{
+                body {{ padding: 10px; }}
+                .header {{ padding: 15px; }}
+                .header h1 {{ font-size: 24px; }}
+                .container {{ padding: 15px; }}
+            }}
         </style>
     </head>
     <body>
         <div class="header">
             <h1>➕ Add New Student</h1>
-            <p>BCA 5th Semester - Register New Student</p>
+            <p>B.E (Artificial Intelligence & Data Science) 4th Semester - Register New Student</p>
         </div>
         
-        ''' + get_menu() + '''
+        {get_menu()}
         
         <div class="container">
             <h2>Add Student Form</h2>
             
             <form method="POST">
-                <label for="roll_no">Roll Number:</label>
-                <input type="text" name="roll_no" id="roll_no" placeholder="e.g., BCA2024001" required>
+                <div class="form-group">
+                    <label for="roll_no">Roll Number:</label>
+                    <input type="text" name="roll_no" id="roll_no" placeholder="e.g., AIDS2024001" required>
+                </div>
                 
-                <label for="name">Student Name:</label>
-                <input type="text" name="name" id="name" placeholder="e.g., Rahul Sharma" required>
+                <div class="form-group">
+                    <label for="name">Student Name:</label>
+                    <input type="text" name="name" id="name" placeholder="e.g., Rahul Sharma" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">Email Address:</label>
+                    <input type="email" name="email" id="email" placeholder="e.g., rahul@example.com">
+                </div>
+                
+                <div class="form-group">
+                    <label for="phone">Mobile Number:</label>
+                    <input type="tel" name="phone" id="phone" placeholder="e.g., 9876543210">
+                </div>
                 
                 <input type="submit" value="Add Student">
             </form>
             
-            ''' + get_instructions() + get_subjects_info() + '''
+            {get_instructions()}
+            {get_subjects_info()}
             
             <br>
             <a href="/" style="color: #2196F3; text-decoration: none;">← Back to Home</a>
@@ -755,61 +1009,81 @@ def add_student():
 # Continue with your existing enter_marks route (copy from your current app.py)
 @app.route('/enter_marks', methods=['GET', 'POST'])
 def enter_marks():
-    conn = sqlite3.connect('bca_results.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
+    
     
     if request.method == 'POST':
         student_id = request.form['student_id']
         subject_id = request.form['subject_id']
         marks = int(request.form['marks'])
         
-        cursor.execute('SELECT id FROM marks WHERE student_id=? AND subject_id=?', (student_id, subject_id))
+        cursor.execute('SELECT id FROM marks WHERE student_id=%s AND subject_id=%s', (student_id, subject_id))
         
         if cursor.fetchone():
-            cursor.execute('UPDATE marks SET marks=? WHERE student_id=? AND subject_id=?', 
+            cursor.execute('UPDATE marks SET marks=%s WHERE student_id=%s AND subject_id=%s', 
                           (marks, student_id, subject_id))
             message = "✅ Marks updated successfully!"
         else:
-            cursor.execute('INSERT INTO marks (student_id, subject_id, marks) VALUES (?, ?, ?)', 
+            cursor.execute('INSERT INTO marks (student_id, subject_id, marks) VALUES (%s, %s, %s)', 
                           (student_id, subject_id, marks))
             message = "✅ Marks entered successfully!"
         
         conn.commit()
         conn.close()
+       
         
         return f'''
         <!DOCTYPE html>
         <html>
         <head>
             <title>Success</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
+                * {{ margin: 0; padding: 0; box-sizing: border-box; }}
                 body {{
-    font-family: Arial;
-    margin: 40px;
-    background-image: url("/static/background.png");
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-}}
-                .success-box {{background: white; padding: 40px; border-radius: 10px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.1); max-width: 500px; margin: auto;}}
+                    font-family: Arial, sans-serif;
+                    background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+                    min-height: 100vh;
+                    padding: 20px;
+                }}
+                .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; text-align: center; margin-bottom: 20px; }}
+                .header h1 {{ font-size: 28px; }}
+                .container {{ background: white; padding: 30px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); max-width: 600px; margin: 0 auto; text-align: center; }}
+                .success-box h2 {{ color: #4CAF50; margin: 20px 0; }}
+                .btn-group {{ margin: 30px 0; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }}
+                .btn {{ padding: 10px 20px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px; margin: 5px; display: inline-block; font-weight: bold; transition: all 0.3s; }}
+                .btn:hover {{ background: #45a049; transform: translateY(-2px); }}
+                .btn-alt {{ background: #2196F3; }}
+                .btn-alt:hover {{ background: #0b7dda; }}
+                .btn-default {{ background: #666; }}
+                .btn-default:hover {{ background: #555; }}
+                .info-box {{ background: #f0f8ff; padding: 15px; border-radius: 8px; margin-top: 20px; border-left: 4px solid #4CAF50; text-align: left; }}
             </style>
         </head>
         <body>
-            <div class="success-box">
-                <h2 style="color: #4CAF50;">{message}</h2>
-                
-                <div style="margin: 30px 0;">
-                    <a href="/enter_marks" style="padding: 10px 20px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px; margin: 5px;">Enter More Marks</a>
-                    <a href="/students" style="padding: 10px 20px; background: #2196F3; color: white; text-decoration: none; border-radius: 5px; margin: 5px;">View Students</a>
-                    <a href="/" style="padding: 10px 20px; background: #666; color: white; text-decoration: none; border-radius: 5px; margin: 5px;">Home</a>
-                </div>
-                
-                <div style="background: #f0f8ff; padding: 15px; border-radius: 8px; margin-top: 20px;">
-                    <h4>Next Steps:</h4>
-                    <p>1. Enter marks for other subjects</p>
-                    <p>2. Check student's result</p>
-                    <p>3. View data analysis for insights</p>
-                    <p>4. Download PDF result card</p>
+            <div class="header">
+                <h1>✅ Success</h1>
+            </div>
+            
+            <div class="container">
+                <div class="success-box">
+                    <h2>{message}</h2>
+                    
+                    <div class="btn-group">
+                        <a href="/enter_marks" class="btn">Enter More Marks</a>
+                        <a href="/students" class="btn btn-alt">View Students</a>
+                        <a href="/" class="btn btn-default">Home</a>
+                    </div>
+                    
+                    <div class="info-box">
+                        <h4>Next Steps:</h4>
+                        <p>1. Enter marks for other subjects</p>
+                        <p>2. Check student's result</p>
+                        <p>3. View data analysis for insights</p>
+                        <p>4. Download PDF result card</p>
+                    </div>
                 </div>
             </div>
         </body>
@@ -822,6 +1096,7 @@ def enter_marks():
     cursor.execute('SELECT id, subject_code, subject_name FROM subjects ORDER BY subject_code')
     subjects = cursor.fetchall()
     
+    
     conn.close()
     
     student_options = ""
@@ -832,65 +1107,82 @@ def enter_marks():
     for subject in subjects:
         subject_options += f'<option value="{subject[0]}">{subject[1]} - {subject[2]}</option>'
     
+   
+    menu_html = get_menu()
+    instructions_html = get_instructions()
+    subjects_info_html = get_subjects_info()
+
     return f'''
     <!DOCTYPE html>
     <html>
     <head>
         <title>Enter Marks</title>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
+            * {{ margin: 0; padding: 0; box-sizing: border-box; }}
             body {{
-    font-family: Arial;
-    margin: 40px;
-    background-image: url("/static/background.png");
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-}}
-            .header {{background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px;}}
-            .menu {{margin: 20px 0;}}
-            .menu a {{display: inline-block; margin: 10px; padding: 12px 20px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;}}
-            .container {{background: white; padding: 30px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); max-width: 600px; margin: auto;}}
-            form {{margin-top: 20px;}}
-            label {{display: block; margin: 15px 0 5px; font-weight: bold;}}
-            select, input[type="number"] {{width: 100%; padding: 10px; margin: 5px 0 20px; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box;}}
-            input[type="submit"] {{background: #4CAF50; color: white; padding: 12px 30px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px;}}
-            input[type="submit"]:hover {{background: #45a049;}}
-            .instructions {{background: #f0f8ff; padding: 15px; border-radius: 8px; margin: 20px 0;}}
-            .subjects-list {{background: #f9f9f9; padding: 15px; border-radius: 8px; margin: 20px 0;}}
+                font-family: Arial, sans-serif;
+                background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+                min-height: 100vh;
+                padding: 20px;
+            }}
+            .header {{ background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px; }}
+            .header h1 {{ font-size: 28px; margin-bottom: 10px; }}
+            .header p {{ font-size: 16px; }}
+            .menu {{ margin: 20px 0; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; }}
+            .menu a {{ display: inline-block; padding: 12px 20px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px; font-weight: bold; transition: all 0.3s; }}
+            .menu a:hover {{ background: #45a049; transform: translateY(-2px); }}
+            .container {{ background: white; padding: 25px; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); max-width: 600px; margin: 0 auto; }}
+            h2 {{ color: #333; margin: 20px 0 15px 0; }}
+            form {{ margin-top: 20px; }}
+            label {{ display: block; margin: 15px 0 5px 0; font-weight: bold; color: #333; }}
+            select, input[type="number"] {{ width: 100%; padding: 10px; margin: 5px 0 20px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; font-size: 14px; }}
+            input[type="submit"] {{ width: 100%; background: #4CAF50; color: white; padding: 12px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; margin-top: 10px; }}
+            input[type="submit"]:hover {{ background: #45a049; }}
+            .instructions {{ background: #f0f8ff; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #4CAF50; }}
+            .subjects-info {{ background: #f0f8ff; padding: 15px; border-radius: 8px; margin: 15px 0; border-left: 4px solid #4CAF50; }}
+            @media (max-width: 768px) {{
+                body {{ padding: 10px; }}
+                .header {{ padding: 15px; }}
+                .header h1 {{ font-size: 24px; }}
+                .container {{ padding: 15px; }}
+            }}
         </style>
     </head>
     <body>
         <div class="header">
             <h1>📝 Enter Student Marks</h1>
-            <p>BCA 5th Semester - All 6 Subjects</p>
+            <p>B.E (Artificial Intelligence & Data Science) 4th Semester - All 6 Subjects</p>
         </div>
-        
-        ''' + get_menu() + '''
-        
+
+        {menu_html}
+
         <div class="container">
             <h2>Enter Marks Form</h2>
-            
+
             <form method="POST">
                 <label for="student">Select Student:</label>
                 <select name="student_id" id="student" required>
                     <option value="">-- Select Student --</option>
                     {student_options}
                 </select>
-                
+
                 <label for="subject">Select Subject:</label>
                 <select name="subject_id" id="subject" required>
                     <option value="">-- Select Subject --</option>
                     {subject_options}
                 </select>
-                
+
                 <label for="marks">Enter Marks (0-100):</label>
                 <input type="number" name="marks" id="marks" min="0" max="100" placeholder="Enter marks between 0-100" required>
-                
+
                 <input type="submit" value="Save Marks">
             </form>
-            
-            ''' + get_instructions() + get_subjects_info() + '''
-            
+
+            {instructions_html}
+            {subjects_info_html}
+
             <br>
             <a href="/" style="color: #2196F3; text-decoration: none;">← Back to Home</a>
         </div>
@@ -903,10 +1195,10 @@ def enter_marks():
 
 @app.route('/view_result/<int:student_id>')
 def view_result(student_id):
-    conn = sqlite3.connect('bca_results.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute('SELECT roll_no, name, semester FROM students WHERE id=?', (student_id,))
+    cursor.execute('SELECT roll_no, name, semester FROM students WHERE id=%s', (student_id,))
     student = cursor.fetchone()
     
     if not student:
@@ -922,7 +1214,7 @@ def view_result(student_id):
         SELECT s.subject_code, s.subject_name, m.marks
         FROM marks m
         JOIN subjects s ON m.subject_id = s.id
-        WHERE m.student_id = ?
+        WHERE m.student_id = %s
         ORDER BY s.subject_code
     ''', (student_id,))
     
@@ -974,33 +1266,75 @@ def view_result(student_id):
 <html>
 <head>
     <title>Student Result</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{
-    font-family: Arial;
-    margin: 40px;
-    background-image: url("/static/background.png");
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-}}
-        .header {{background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 25px; border-radius: 15px 15px 0 0;}}
-        .menu {{margin: 20px 0;}}
-        .menu a {{display: inline-block; margin: 10px; padding: 12px 20px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;}}
-        .result-card {{background: white; padding: 30px; border-radius: 0 0 15px 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);}}
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }}
+        .header {{
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 25px;
+            border-radius: 15px 15px 0 0;
+            text-align: center;
+        }}
+        .header h1 {{ font-size: 28px; margin-bottom: 10px; }}
+        .header p {{ font-size: 16px; }}
+        .menu {{
+            margin: 15px 0;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }}
+        .menu a {{
+            padding: 10px 15px;
+            background: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 5px;
+            font-weight: bold;
+            transition: all 0.3s;
+            font-size: 14px;
+        }}
+        .menu a:hover {{ background: #45a049; transform: translateY(-2px); }}
+        .result-card {{
+            background: white;
+            padding: 30px;
+            border-radius: 0 0 15px 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            max-width: 900px;
+            margin: 0 auto;
+        }}
         table {{width: 100%; border-collapse: collapse; margin: 25px 0;}}
         th, td {{border: 1px solid #ddd; padding: 12px; text-align: left;}}
         th {{background: #f8f9fa;}}
         .total-box {{background: #f8f9fa; padding: 20px; border-radius: 10px; margin: 25px 0; border-left: 5px solid #4CAF50;}}
         .grade {{font-size: 28px; font-weight: bold; padding: 10px; border-radius: 8px; display: inline-block;}}
-        .btn {{display: inline-block; padding: 12px 25px; background: #2196F3; color: white; text-decoration: none; border-radius: 8px; margin: 10px 5px;}}
-        .pdf-btn {{background: #e74c3c; color: white; padding: 12px 25px; border-radius: 8px; text-decoration: none; display: inline-block;}}
-        .pdf-btn:hover {{background: #c0392b;}}
+        .btn {{display: inline-block; padding: 12px 25px; background: #2196F3; color: white; text-decoration: none; border-radius: 8px; margin: 10px 5px; transition: all 0.3s;}}
+        .btn:hover {{ background: #0b7dda; transform: translateY(-2px); }}
+        .pdf-btn {{background: #e74c3c; color: white; padding: 12px 25px; border-radius: 8px; text-decoration: none; display: inline-block; transition: all 0.3s;}}
+        .pdf-btn:hover {{background: #c0392b; transform: translateY(-2px);}}
+        h2 { color: #333; margin: 20px 0 15px 0; }
+        @media (max-width: 768px) {{
+            body {{ padding: 10px; }}
+            .header {{ padding: 15px; }}
+            .header h1 {{ font-size: 24px; }}
+            .result-card {{ padding: 15px; }}
+            table {{ font-size: 14px; }}
+            th, td {{ padding: 8px; }}
+        }}
     </style>
 </head>
 <body>
     <div class="header">
         <h1>🎓 Student Result Card</h1>
-        <p>Alpine College of Education • BCA 5th Semester • All 6 Subjects</p>
+        <p> B.E (Artificial Intelligence & Data Science) 4th Semester • All 6 Subjects</p>
     </div>
     
     {get_menu()}
@@ -1054,7 +1388,7 @@ def view_result(student_id):
 # Continue with your existing analysis route (copy from your current app.py)
 @app.route('/analysis')
 def data_analysis():
-    conn = sqlite3.connect('bca_results.db')
+    conn = get_db_connection()
     cursor = conn.cursor()
     
     cursor.execute('''
@@ -1138,14 +1472,20 @@ def data_analysis():
     
     subject_table = ""
     for subject in subject_stats:
-        pass_rate = (subject[6] / subject[7] * 100) if subject[7] > 0 else 0
+        total_students = subject[7] or 0
+        passed_students = subject[6] or 0
+
+        pass_rate = (passed_students / total_students * 100) if total_students > 0 else 0
+
+        avg_marks = subject[3] if subject[3] is not None else 0
+
         subject_table += f'''
         <tr>
             <td>{subject[0]}<br><small>{subject[1]}</small></td>
-            <td>{subject[2]}</td>
-            <td>{subject[3]:.1f}</td>
-            <td>{subject[4]}</td>
-            <td>{subject[5]}</td>
+            <td>{subject[2] or 0}</td>
+            <td>{avg_marks:.1f}</td>
+            <td>{subject[4] or 0}</td>
+            <td>{subject[5] or 0}</td>
             <td>{pass_rate:.1f}%</td>
         </tr>
         '''
@@ -1176,15 +1516,16 @@ def data_analysis():
 <html>
 <head>
     <title>Data Analysis</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
+        * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{
-    font-family: Arial;
-    margin: 40px;
-    background-image: url("/static/background.png");
-    background-size: cover;
-    background-position: center;
-    background-attachment: fixed;
-}}
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #f5f5f5 0%, #e8e8e8 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }}
         .header {{background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 20px; border-radius: 10px;}}
         .menu {{margin: 20px 0;}}
         .menu a {{display: inline-block; margin: 10px; padding: 12px 20px; background: #4CAF50; color: white; text-decoration: none; border-radius: 5px; font-weight: bold;}}
@@ -1203,7 +1544,7 @@ def data_analysis():
 <body>
     <div class="header">
         <h1>📊 Data Analysis Dashboard</h1>
-        <p>BCA 5th Semester - Performance Statistics & Insights</p>
+        <p>Performance Statistics & Insights</p>
     </div>
     
     {get_menu()}
@@ -1291,6 +1632,7 @@ def data_analysis():
         
         {get_instructions()}
         {get_subjects_info()}
+        
         
         <br>
         <a href="/" style="padding: 10px 20px; background: #2196F3; color: white; text-decoration: none; border-radius: 5px;">← Back to Home</a>
