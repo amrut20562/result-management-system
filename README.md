@@ -80,19 +80,19 @@ result-management-system/
 ![Home Page](screenshots/home.jpg)
 
 ### 📋 Students List
-![Students List](screenshots/Students List.jpg)
+![Students List](screenshots/StudentsList.jpg)
 
 ### ➕ Add Student
-![Add Student](screenshots/Add Student.jpg)
+![Add Student](screenshots/AddStudent.jpg)
 
 ### 📝 Enter Marks
-![Enter Marks](screenshots/Enter Marks.jpg)
+![Enter Marks](screenshots/EnterMarks.jpg)
 
 ### 🔎 Search Student
-![Search](screenshots/Search Student.jpg)
+![Search](screenshots/SearchStudent.jpg)
 
 ### 📊 Analysis Dashboard
-![Analysis](screenshots/Data Analysis.jpg)
+![Analysis](screenshots/DataAnalysis.jpg)
 
 ---
 
